@@ -2692,7 +2692,7 @@
                             </div>
                             <div class="form-group">
                                 <label>PMS Price/Litre (UGX)</label>
-                                <input type="number" id="wiz-pms-price" step="1" value="5800">
+                                <input type="number" id="wiz-pms-price" step="1" value="5200">
                             </div>
                             <div class="form-group">
                                 <label>PMS Total (UGX)</label>
@@ -2706,7 +2706,7 @@
                             </div>
                             <div class="form-group">
                                 <label>AGO Price/Litre (UGX)</label>
-                                <input type="number" id="wiz-ago-price" step="1" value="5600">
+                                <input type="number" id="wiz-ago-price" step="1" value="4800">
                             </div>
                             <div class="form-group">
                                 <label>AGO Total (UGX)</label>
@@ -3729,7 +3729,7 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
         let settings = JSON.parse(localStorage.getItem('settings') || JSON.stringify({
             openingStock: { pms: 0, ago: 0, date: new Date().toISOString().split('T')[0] },
             openingBalance: { cash: 0, momo: 0, date: new Date().toISOString().split('T')[0] },
-            prices: { pmsSelling: 5800, agoSelling: 5600, pmsCost: 5000, agoCost: 4800 }
+            prices: { pmsSelling: 5200, agoSelling: 4800, pmsCost: 5000, agoCost: 4600 }
         }));
         let viewLocks = JSON.parse(localStorage.getItem('viewLocks') || JSON.stringify({
             meters: false,
@@ -3758,8 +3758,8 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             
             // IMPROVEMENT 1: Auto-populate wizard prices from settings
             if (settings.prices) {
-                document.getElementById('wiz-pms-price').value = settings.prices.pmsSelling || 5800;
-                document.getElementById('wiz-ago-price').value = settings.prices.agoSelling || 5600;
+                document.getElementById('wiz-pms-price').value = settings.prices.pmsSelling || 5200;
+                document.getElementById('wiz-ago-price').value = settings.prices.agoSelling || 4800;
             }
             
             // Setup auto-calculations
@@ -3989,7 +3989,7 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             // FIX 2: Load settings fresh and apply selling prices
             settings = JSON.parse(localStorage.getItem('settings')) || {
                 opening: { pms: 0, ago: 0, cash: 0 },
-                prices: { pmsSelling: 5800, agoSelling: 5600, pmsCost: 5500, agoCost: 5300 },
+                prices: { pmsSelling: 5200, agoSelling: 4800, pmsCost: 5000, agoCost: 4600 },
                 password: 'admin123'
             };
             
@@ -4675,7 +4675,7 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
                 paymentMethod: document.getElementById('expense-payment-method').value,
                 paidTo: document.getElementById('expense-paid-to').value,
                 reference: document.getElementById('expense-reference').value,
-                receipt: document.getElementById('expense-receipt').value,
+                // receipt field removed - not in backend schema
                 approvedBy: document.getElementById('expense-approved-by').value || 'Pending',
                 recordedBy: document.getElementById('expense-recorded-by').value,
                 notes: document.getElementById('expense-notes').value,

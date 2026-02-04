@@ -4347,47 +4347,47 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             // Generate reading ID first
             const readingId = generateId();
             
-            // Update credit IDs to match backend format (CR-ME 0109-1, CR-ME 0109-2, etc.)
+            // Update credit IDs to match backend format
             const creditsWithBackendIds = wizardData.credits.map((credit, index) => ({
                 ...credit,
                 id: `CR-${readingId}-${index + 1}`
             }));
             
-            const reading = {
-                id: readingId,
-                date: wizardData.date,
-                shift: wizardData.shift,
-                pump: wizardData.pump,
-                staff: wizardData.attendant,
-                pmsOpen: wizardData.pmsOpen,
-                pmsClose: wizardData.pmsClose,
-                pmsSold: wizardData.pmsLitres,
-                agoOpen: wizardData.agoOpen,
-                agoClose: wizardData.agoClose,
-                agoSold: wizardData.agoLitres,
-                pmsPrice: parseFloat(document.getElementById('wiz-pms-price').value),
-                agoPrice: parseFloat(document.getElementById('wiz-ago-price').value),
-                pmsSales: parseFloat(document.getElementById('wiz-pms-total').value),
-                agoSales: parseFloat(document.getElementById('wiz-ago-total').value),
-                totalSales: totalSales,
-                cash: cash,
-                momo: momo,
-                credits: credits,
-                totalCollected: collectedAmount,
-                pettyCash: totalPetty,
-                losses: losses,
-                witness: document.getElementById('wiz-witness').value || '',
-                preparedBy: currentUser ? currentUser.name : 'Unknown',
-                timestamp: new Date().toISOString(),
-                // Transaction details with backend-compatible IDs (not saved to sheet row)
-                creditTransactions: creditsWithBackendIds,
-                momoTransactions: wizardData.momos,
-                pettyCashTransactions: wizardData.pettyCash,
-                totalCreditsAmount: totalCredits,
-                totalMomosAmount: totalMomos,
-                totalPettyCashAmount: totalPetty,
-                type: 'wizard'
-            };
+            // ✅ CREATE READING OBJECT - EXACT BACKEND ORDER
+            const reading = {};
+            reading.id = readingId;
+            reading.date = wizardData.date;
+            reading.shift = wizardData.shift;
+            reading.pump = wizardData.pump;
+            reading.staff = wizardData.attendant;
+            reading.pmsOpen = wizardData.pmsOpen;
+            reading.pmsClose = wizardData.pmsClose;
+            reading.pmsSold = wizardData.pmsLitres;
+            reading.agoOpen = wizardData.agoOpen;
+            reading.agoClose = wizardData.agoClose;
+            reading.agoSold = wizardData.agoLitres;
+            reading.pmsPrice = parseFloat(document.getElementById('wiz-pms-price').value);
+            reading.agoPrice = parseFloat(document.getElementById('wiz-ago-price').value);
+            reading.pmsSales = parseFloat(document.getElementById('wiz-pms-total').value);
+            reading.agoSales = parseFloat(document.getElementById('wiz-ago-total').value);
+            reading.totalSales = totalSales;
+            reading.cash = cash;
+            reading.momo = momo;
+            reading.credits = credits;
+            reading.totalCollected = collectedAmount;
+            reading.pettyCash = totalPetty;
+            reading.losses = losses;
+            reading.witness = document.getElementById('wiz-witness').value || '';
+            reading.preparedBy = currentUser ? currentUser.name : 'Unknown';
+            reading.timestamp = new Date().toISOString();
+            // Additional data (not in sheet columns but useful for app)
+            reading.creditTransactions = creditsWithBackendIds;
+            reading.momoTransactions = wizardData.momos;
+            reading.pettyCashTransactions = wizardData.pettyCash;
+            reading.totalCreditsAmount = totalCredits;
+            reading.totalMomosAmount = totalMomos;
+            reading.totalPettyCashAmount = totalPetty;
+            reading.type = 'wizard';
             
             readings.push(reading);
             localStorage.setItem('readings', JSON.stringify(readings));

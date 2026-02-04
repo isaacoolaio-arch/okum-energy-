@@ -4359,7 +4359,6 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
                 shift: wizardData.shift,
                 pump: wizardData.pump,
                 staff: wizardData.attendant,
-                witness: document.getElementById('wiz-witness').value || '',
                 pmsOpen: wizardData.pmsOpen,
                 pmsClose: wizardData.pmsClose,
                 pmsSold: wizardData.pmsLitres,
@@ -4368,25 +4367,26 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
                 agoSold: wizardData.agoLitres,
                 pmsPrice: parseFloat(document.getElementById('wiz-pms-price').value),
                 agoPrice: parseFloat(document.getElementById('wiz-ago-price').value),
-                pmsSales: parseFloat(document.getElementById('wiz-pms-total').value), // Changed from pmsTotal
-                agoSales: parseFloat(document.getElementById('wiz-ago-total').value), // Changed from agoTotal
+                pmsSales: parseFloat(document.getElementById('wiz-pms-total').value),
+                agoSales: parseFloat(document.getElementById('wiz-ago-total').value),
                 totalSales: totalSales,
                 cash: cash,
                 momo: momo,
                 credits: credits,
-                totalCollected: collectedAmount, // Added this field
-                pettyCash: totalPetty, // Changed from expenses
+                totalCollected: collectedAmount,
+                pettyCash: totalPetty,
                 losses: losses,
-                // Transaction details with backend-compatible IDs
+                witness: document.getElementById('wiz-witness').value || '',
+                preparedBy: currentUser ? currentUser.name : 'Unknown',
+                timestamp: new Date().toISOString(),
+                // Transaction details with backend-compatible IDs (not saved to sheet row)
                 creditTransactions: creditsWithBackendIds,
                 momoTransactions: wizardData.momos,
                 pettyCashTransactions: wizardData.pettyCash,
                 totalCreditsAmount: totalCredits,
                 totalMomosAmount: totalMomos,
                 totalPettyCashAmount: totalPetty,
-                timestamp: new Date().toISOString(),
-                type: 'wizard',
-                preparedBy: currentUser ? currentUser.name : 'Unknown'
+                type: 'wizard'
             };
             
             readings.push(reading);

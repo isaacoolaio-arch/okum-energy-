@@ -1428,6 +1428,12 @@
                 <div class="search-box">
                     <input type="text" placeholder="Search anything..." id="dashboard-search">
                 </div>
+                
+                <!-- Cloud Sync Status -->
+                <div id="cloud-status-badge" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: #f3f4f6; border-radius: 6px; font-size: 13px; margin-right: 10px;">
+                    <span id="cloud-status-icon">☁️</span>
+                    <span id="cloud-status-text">Ready</span>
+                </div>
 		
                 <button class="logout-btn" onclick="handleLogout()">
                     🚪 Logout
@@ -3535,6 +3541,7 @@
 // Add this at the top of your OKUM HTML file, BEFORE the main <script> tag
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbxZTnBveiZZaCqAI6IaNkiY5mdOcegnUKdrC5fqYAtolZQOKBXD2W6vUpHit1WeIhMI3w/exec';  // ← Paste your URL here!
+
 const CloudStorage = {
     async saveReading(data) {
         try {
@@ -3620,6 +3627,22 @@ const CloudStorage = {
             console.error('Cloud save failed:', error);
             return { success: false, error: error.message };
         }
+    },
+    
+    async saveSupplierPayment(data) {
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'saveSupplierPayment',
+                    data: data
+                })
+            });
+            return await response.json();
+        } catch (error) {
+            console.error('Cloud save failed:', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 
@@ -3635,58 +3658,76 @@ console.log('☁️ Cloud sync enabled!');
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function updateCloudBadge(status) {
-    const badges = document.querySelectorAll('.cloud-badge, .cloud-status-badge, .realtime-badge');
-    badges.forEach(badge => {
-        switch(status) {
-            case 'syncing':
-                badge.innerHTML = '☁️ Syncing...';
-                badge.style.background = '#3b82f6';
-                badge.style.display = 'flex';
-                // Auto-hide after 15 seconds
-                setTimeout(() => {
-                    badge.style.display = 'none';
-                }, 15000);
-                break;
-            case 'synced':
-                badge.innerHTML = '✅ Synced';
-                badge.style.background = '#10b981';
-                badge.style.display = 'flex';
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    badge.style.display = 'none';
-                }, 3000);
-                break;
-            case 'error':
-                badge.innerHTML = '❌ Error';
-                badge.style.background = '#ef4444';
-                badge.style.display = 'flex';
-                // Hide after 10 seconds
-                setTimeout(() => {
-                    badge.style.display = 'none';
-                }, 10000);
-                break;
-            case 'offline':
-                badge.innerHTML = '🔴 Offline';
-                badge.style.background = '#6b7280';
-                badge.style.display = 'flex';
-                // Hide after 15 seconds
-                setTimeout(() => {
-                    badge.style.display = 'none';
-                }, 15000);
-                break;
-            case 'online':
-                badge.innerHTML = '🟢 Online';
-                badge.style.background = '#10b981';
-                badge.style.display = 'flex';
-                // Hide after 3 seconds
-                setTimeout(() => {
-                    badge.style.display = 'none';
-                }, 3000);
-                break;
-            default:
-                badge.style.display = 'none';
-        }
-    });
+    const badge = document.getElementById('cloud-status-badge');
+    const icon = document.getElementById('cloud-status-icon');
+    const text = document.getElementById('cloud-status-text');
+    
+    if (!badge || !icon || !text) return;
+    
+    switch(status) {
+        case 'syncing':
+            icon.textContent = '☁️';
+            text.textContent = 'Syncing...';
+            badge.style.background = '#dbeafe';
+            badge.style.color = '#1e40af';
+            badge.style.display = 'inline-flex';
+            break;
+        case 'synced':
+            icon.textContent = '✅';
+            text.textContent = 'Synced';
+            badge.style.background = '#d1fae5';
+            badge.style.color = '#065f46';
+            badge.style.display = 'inline-flex';
+            // Back to ready after 2 seconds
+            setTimeout(() => {
+                icon.textContent = '☁️';
+                text.textContent = 'Ready';
+                badge.style.background = '#f3f4f6';
+                badge.style.color = '#374151';
+            }, 2000);
+            break;
+        case 'error':
+            icon.textContent = '❌';
+            text.textContent = 'Error';
+            badge.style.background = '#fee2e2';
+            badge.style.color = '#991b1b';
+            badge.style.display = 'inline-flex';
+            // Back to ready after 5 seconds
+            setTimeout(() => {
+                icon.textContent = '☁️';
+                text.textContent = 'Ready';
+                badge.style.background = '#f3f4f6';
+                badge.style.color = '#374151';
+            }, 5000);
+            break;
+        case 'offline':
+            icon.textContent = '🔴';
+            text.textContent = 'Offline';
+            badge.style.background = '#f3f4f6';
+            badge.style.color = '#6b7280';
+            badge.style.display = 'inline-flex';
+            break;
+        case 'online':
+            icon.textContent = '🟢';
+            text.textContent = 'Online';
+            badge.style.background = '#d1fae5';
+            badge.style.color = '#065f46';
+            badge.style.display = 'inline-flex';
+            // Back to ready after 2 seconds
+            setTimeout(() => {
+                icon.textContent = '☁️';
+                text.textContent = 'Ready';
+                badge.style.background = '#f3f4f6';
+                badge.style.color = '#374151';
+            }, 2000);
+            break;
+        default:
+            icon.textContent = '☁️';
+            text.textContent = 'Ready';
+            badge.style.background = '#f3f4f6';
+            badge.style.color = '#374151';
+            badge.style.display = 'inline-flex';
+    }
 }
 
 // Hide badge by default after page load (15 seconds after initial display)
@@ -4648,6 +4689,9 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
         function savePurchase(event) {
             event.preventDefault();
             
+            // CRITICAL: Reload purchases from localStorage to get latest IDs
+            purchases = JSON.parse(localStorage.getItem('purchases') || '[]');
+            
             // Calculate amounts
             const litres = parseFloat(document.getElementById('purchase-litres').value);
             const pricePerLiter = parseFloat(document.getElementById('purchase-price-per-liter').value);
@@ -4726,6 +4770,9 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
 
         function saveExpense(event) {
             event.preventDefault();
+            
+            // CRITICAL: Reload expenses from localStorage to get latest IDs
+            expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
             
             const expense = {
                 id: (() => {
@@ -4903,13 +4950,30 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             supplierPayments.push(payment);
             localStorage.setItem('supplierPayments', JSON.stringify(supplierPayments));
             
-            showAlertAndReload('✅ Supplier payment recorded successfully! ID: ' + payment.id, 'success');
+            // Sync to cloud
+            if (typeof CloudStorage !== 'undefined' && CloudStorage.saveSupplierPayment) {
+                console.log('☁️ Syncing supplier payment to cloud:', payment.id);
+                if (typeof updateCloudBadge === 'function') updateCloudBadge('syncing');
+                
+                CloudStorage.saveSupplierPayment(payment).then(result => {
+                    if (result && result.success) {
+                        console.log('✅ Supplier payment synced to cloud');
+                        if (typeof updateCloudBadge === 'function') updateCloudBadge('synced');
+                        showAlertAndReload('✅ Supplier payment recorded successfully! ID: ' + payment.id, 'success');
+                    } else {
+                        console.warn('⚠️ Supplier payment saved locally but cloud sync failed');
+                        if (typeof updateCloudBadge === 'function') updateCloudBadge('error');
+                        showAlertAndReload('⚠️ Supplier payment saved locally, cloud sync failed', 'warning');
+                    }
+                }).catch(error => {
+                    console.error('❌ Cloud sync error:', error);
+                    if (typeof updateCloudBadge === 'function') updateCloudBadge('error');
+                    showAlertAndReload('❌ Supplier payment cloud sync error', 'error');
+                });
+            } else {
+                showAlertAndReload('✅ Supplier payment recorded successfully! ID: ' + payment.id, 'success');
+            }
             
-		updateCloudRecord('Purchases', payment.purchaseId, {
-  		balance: newBalance
-		});
-
-
             closeSupplierPaymentForm();
         }
 
@@ -7252,24 +7316,27 @@ function migratePurchases() {
                     info: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }
                 };
                 
-                alertsContainer.innerHTML = alerts.map(alert => {
-                    const color = alertColors[alert.type];
-                    return `
-                        <div style="background: ${color.bg}; border-left: 4px solid ${color.border}; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                            <div style="display: flex; justify-content: space-between; align-items: start;">
-                                <div style="flex: 1;">
-                                    <div style="font-size: 20px; margin-bottom: 5px;">${alert.icon}</div>
-                                    <div style="font-size: 16px; font-weight: 600; color: ${color.text}; margin-bottom: 5px;">${alert.title}</div>
-                                    <div style="font-size: 14px; color: ${color.text}; margin-bottom: 8px;">${alert.message}</div>
-                                    <div style="font-size: 12px; color: ${color.text}; opacity: 0.8; line-height: 1.6;">${alert.details}</div>
+                // COMPACT DISPLAY: All alerts in one line
+                alertsContainer.innerHTML = `
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                        ${alerts.map(alert => {
+                            const color = alertColors[alert.type];
+                            // Extract count and total from message
+                            const match = alert.message.match(/(\d+).*Total:\s*(UGX\s*[\d,]+)/);
+                            const count = match ? match[1] : '';
+                            const total = match ? match[2] : '';
+                            
+                            return `
+                                <div style="background: ${color.bg}; border: 1px solid ${color.border}; padding: 8px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;" onclick="${alert.action}">
+                                    <span style="font-size: 18px;">${alert.icon}</span>
+                                    <span style="font-size: 14px; font-weight: 600; color: ${color.text};">
+                                        ${alert.title.replace('Outstanding Customer Credits', 'Credits').replace('Unpaid Supplier Balances', 'Suppliers').replace('Unsorted Losses', 'Losses')} - ${count} ${alert.title.includes('Credits') ? 'customers' : alert.title.includes('Suppliers') ? 'balances' : 'shifts'}, ${total}
+                                    </span>
                                 </div>
-                                <button class="btn btn-sm" onclick="${alert.action}" style="background: ${color.border}; color: white; border: none;">
-                                    View Details →
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                            `;
+                        }).join('')}
+                    </div>
+                `;
                 alertsContainer.style.display = 'block';
             } else {
                 alertsContainer.style.display = 'none';

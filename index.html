@@ -3534,11 +3534,32 @@
 
 // Add this at the top of your OKUM HTML file, BEFORE the main <script> tag
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbyI2yJcjh-MW3VYD-GnUnQ1696aeI6ty0iA1OUPLGxoET8ngsf5_4gsiYIe6JZjEX8Y/exec';  // ← Paste your URL here!
-
+const API_URL = 'https://script.google.com/macros/s/AKfycbxZTnBveiZZaCqAI6IaNkiY5mdOcegnUKdrC5fqYAtolZQOKBXD2W6vUpHit1WeIhMI3w/exec';  // ← Paste your URL here!
 const CloudStorage = {
     async saveReading(data) {
         try {
+            // 🔍 DEBUG LOG #5: Data Being Sent to Backend
+            console.log('');
+            console.log('═══════════════════════════════════════');
+            console.log('🔍 DEBUG #5: SENDING TO BACKEND');
+            console.log('═══════════════════════════════════════');
+            console.log('data.shift:', data.shift);
+            console.log('data.pump:', data.pump);
+            console.log('data.staff:', data.staff);
+            console.log('═══════════════════════════════════════');
+            console.log('PAYLOAD TO BACKEND:');
+            console.log(JSON.stringify({
+                action: 'saveReading',
+                data: {
+                    id: data.id,
+                    shift: data.shift,
+                    pump: data.pump,
+                    staff: data.staff
+                }
+            }, null, 2));
+            console.log('═══════════════════════════════════════');
+            console.log('');
+            
             const response = await fetch(API_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -4040,6 +4061,18 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
                 const pump = document.getElementById('wiz-pump').value;
                 const attendant = document.getElementById('wiz-attendant').value;
                 
+                // 🔍 DEBUG LOG #1: Form Input Values
+                console.log('');
+                console.log('═══════════════════════════════════════');
+                console.log('🔍 DEBUG #1: STEP 1 - FORM INPUT VALUES');
+                console.log('═══════════════════════════════════════');
+                console.log('Date input:', date);
+                console.log('Shift input:', shift);
+                console.log('Pump input:', pump);
+                console.log('Attendant input:', attendant);
+                console.log('═══════════════════════════════════════');
+                console.log('');
+                
                 if (!date || !shift || !pump || !attendant) {
                     showAlert('Please fill all required fields', 'error');
                     return;
@@ -4050,6 +4083,18 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
                 wizardData.shift = shift;
                 wizardData.pump = pump;
                 wizardData.attendant = attendant;
+                
+                // 🔍 DEBUG LOG #2: wizardData After Assignment
+                console.log('');
+                console.log('═══════════════════════════════════════');
+                console.log('🔍 DEBUG #2: STEP 1 - wizardData ASSIGNED');
+                console.log('═══════════════════════════════════════');
+                console.log('wizardData.date:', wizardData.date);
+                console.log('wizardData.shift:', wizardData.shift);
+                console.log('wizardData.pump:', wizardData.pump);
+                console.log('wizardData.attendant:', wizardData.attendant);
+                console.log('═══════════════════════════════════════');
+                console.log('');
                 
                 loadPreviousMeters();
                 
@@ -4347,6 +4392,17 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             // Generate reading ID first
             const readingId = generateId();
             
+            // 🔍 DEBUG LOG #3: Before Creating Reading Object
+            console.log('');
+            console.log('═══════════════════════════════════════');
+            console.log('🔍 DEBUG #3: BEFORE CREATING READING OBJECT');
+            console.log('═══════════════════════════════════════');
+            console.log('wizardData.shift:', wizardData.shift);
+            console.log('wizardData.pump:', wizardData.pump);
+            console.log('wizardData.attendant:', wizardData.attendant);
+            console.log('═══════════════════════════════════════');
+            console.log('');
+            
             // Update credit IDs to match backend format
             const creditsWithBackendIds = wizardData.credits.map((credit, index) => ({
                 ...credit,
@@ -4388,6 +4444,22 @@ window.addEventListener('offline', () => updateCloudBadge('offline'));
             reading.totalMomosAmount = totalMomos;
             reading.totalPettyCashAmount = totalPetty;
             reading.type = 'wizard';
+            
+            // 🔍 DEBUG LOG #4: Final Reading Object
+            console.log('');
+            console.log('═══════════════════════════════════════');
+            console.log('🔍 DEBUG #4: FINAL READING OBJECT');
+            console.log('═══════════════════════════════════════');
+            console.log('reading.id:', reading.id);
+            console.log('reading.date:', reading.date);
+            console.log('reading.shift:', reading.shift);
+            console.log('reading.pump:', reading.pump);
+            console.log('reading.staff:', reading.staff);
+            console.log('═══════════════════════════════════════');
+            console.log('FULL READING OBJECT:');
+            console.log(JSON.stringify(reading, null, 2));
+            console.log('═══════════════════════════════════════');
+            console.log('');
             
             readings.push(reading);
             localStorage.setItem('readings', JSON.stringify(readings));

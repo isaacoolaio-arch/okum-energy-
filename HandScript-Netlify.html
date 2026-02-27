@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a1208">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HandScript">
+<meta name="description" content="Convert handwritten notes to editable text using AI">
+<title>HandScript</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1a1208; --paper:#faf6ef; --cream:#f0e8d8;
+  --amber:#c8873a; --amber-d:#a06828; --amber-pale:#fdf3e3;
+  --sepia:#8b6914; --muted:#7a6a52; --border:#ddd0b8;
+  --ok:#3a7a58; --err:#b83a2a;
+  --r:16px; --sh:0 4px 24px rgba(26,18,8,0.10);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:'DM Sans','Segoe UI',sans-serif;
+  min-height:100vh;overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 15% 0%,#f5e6c8,transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 100%,#e8d5b0,transparent 60%);
+}
+
+/* ── LOCK / SETUP SCREENS ───────────────────────────────── */
+.screen-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:linear-gradient(160deg,#1a1208 0%,#3a2510 50%,#1a1208 100%);
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;
+}
+.screen-box{
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:24px;
+  padding:2.5rem 2rem;
+  width:100%;max-width:380px;
+  text-align:center;
+  backdrop-filter:blur(20px);
+  box-shadow:0 20px 60px rgba(0,0,0,0.4);
+}
+.screen-icon{font-size:3rem;margin-bottom:1rem;display:block}
+.screen-title{
+  font-family:'Playfair Display',serif;
+  font-size:1.7rem;font-weight:700;
+  color:#fff;margin-bottom:.4rem;
+}
+.screen-sub{font-size:.82rem;color:rgba(255,255,255,.55);margin-bottom:2rem;line-height:1.5}
+
+/* PIN dots */
+.pin-dots{
+  display:flex;justify-content:center;gap:.9rem;
+  margin-bottom:1.8rem;
+}
+.pin-dot{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.3);
+  background:transparent;
+  transition:all .2s;
+}
+.pin-dot.filled{background:#c8873a;border-color:#c8873a;transform:scale(1.15)}
+.pin-dot.error{background:#b83a2a;border-color:#b83a2a;animation:shake .35s ease}
+
+/* PIN keypad */
+.keypad{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:.6rem;margin-bottom:1rem;
+}
+.key{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  color:#fff;font-size:1.3rem;font-weight:600;
+  padding:.9rem;cursor:pointer;
+  transition:all .15s;
+  font-family:'DM Sans',sans-serif;
+  user-select:none;
+}
+.key:hover{background:rgba(200,135,58,.25);border-color:#c8873a}
+.key:active{transform:scale(.93)}
+.key.wide{grid-column:span 2;font-size:.85rem;font-weight:500}
+.key.del{font-size:1rem}
+
+.pin-hint{font-size:.75rem;color:rgba(255,255,255,.4);margin-top:.5rem}
+.pin-error-msg{
+  color:#ff8070;font-size:.8rem;
+  min-height:1.2rem;margin-bottom:.5rem;
+}
+.pin-confirm-label{
+  font-size:.78rem;color:rgba(255,255,255,.5);
+  margin-bottom:1rem;letter-spacing:.02em;
+}
+
+/* API key setup */
+.setup-input{
+  width:100%;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.18);border-radius:12px;
+  padding:.85rem 1rem;color:#fff;font-family:'DM Sans',sans-serif;
+  font-size:.88rem;margin-bottom:.8rem;transition:border .2s;
+}
+.setup-input::placeholder{color:rgba(255,255,255,.35)}
+.setup-input:focus{outline:none;border-color:#c8873a}
+.setup-btn{
+  width:100%;background:#c8873a;color:#fff;border:none;
+  border-radius:12px;padding:.9rem;font-family:'DM Sans',sans-serif;
+  font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;
+}
+.setup-btn:hover{background:#a06828;transform:translateY(-1px)}
+.setup-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.setup-link{
+  color:#c8873a;font-size:.75rem;text-decoration:underline;
+  cursor:pointer;display:block;margin-top:.7rem;
+}
+.setup-note{
+  font-size:.72rem;color:rgba(255,255,255,.35);
+  line-height:1.5;margin-top:.9rem;
+}
+
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* ── APP HEADER ─────────────────────────────────────────── */
+.app-header{
+  background:rgba(250,246,239,.93);
+  backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+.header-inner{
+  max-width:1100px;margin:0 auto;
+  padding:.85rem 1.4rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.brand{display:flex;align-items:center;gap:.75rem}
+.brand-icon{
+  width:40px;height:40px;background:var(--ink);
+  border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:1.2rem;flex-shrink:0;
+}
+.brand h1{
+  font-family:'Playfair Display',serif;
+  font-size:1.35rem;font-weight:700;
+  letter-spacing:-.02em;line-height:1;
+}
+.brand p{font-size:.7rem;color:var(--muted);margin-top:2px}
+.lock-btn{
+  background:transparent;border:1.5px solid var(--border);
+  border-radius:8px;padding:.4rem .75rem;
+  font-size:.78rem;cursor:pointer;color:var(--muted);
+  display:flex;align-items:center;gap:.35rem;
+  transition:all .2s;font-family:'DM Sans',sans-serif;
+}
+.lock-btn:hover{border-color:var(--amber);color:var(--amber)}
+
+/* ── NAV TABS ───────────────────────────────────────────── */
+.nav-tabs{
+  display:flex;border-top:1px solid var(--border);
+  background:var(--cream);overflow-x:auto;
+  scrollbar-width:none;
+}
+.nav-tabs::-webkit-scrollbar{display:none}
+.nav-tab{
+  flex-shrink:0;padding:.65rem 1.2rem;
+  font-size:.82rem;font-weight:500;color:var(--muted);
+  border:none;border-bottom:2px solid transparent;
+  background:none;cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.nav-tab.active{color:var(--amber);border-bottom-color:var(--amber);background:rgba(200,135,58,.07)}
+
+/* ── MAIN ───────────────────────────────────────────────── */
+.container{max-width:1100px;margin:0 auto;padding:1.3rem 1rem 2.5rem}
+
+/* ── CONVERT GRID ───────────────────────────────────────── */
+.convert-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(310px,1fr));
+  gap:1.1rem;
+}
+
+/* ── CARD ───────────────────────────────────────────────── */
+.card{
+  background:#fff;border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+  box-shadow:var(--sh);display:flex;flex-direction:column;
+}
+.card-head{
+  padding:.85rem 1.2rem;border-bottom:1px solid var(--border);
+  background:var(--cream);display:flex;
+  align-items:center;justify-content:space-between;
+}
+.card-title{
+  font-family:'Playfair Display',serif;
+  font-size:.95rem;font-weight:600;
+  display:flex;align-items:center;gap:.4rem;
+}
+.card-body{padding:1.1rem;display:flex;flex-direction:column;gap:.85rem;flex:1}
+
+/* ── UPLOAD ZONE ────────────────────────────────────────── */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:12px;
+  padding:2rem 1rem;text-align:center;cursor:pointer;
+  transition:all .25s;background:var(--amber-pale);
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:.65rem;min-height:200px;
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--amber);background:#fef8ef;transform:scale(1.01)}
+.upload-icon{font-size:2.5rem;line-height:1}
+.upload-zone h3{font-family:'Playfair Display',serif;font-size:1rem;font-weight:600}
+.upload-zone p{font-size:.78rem;color:var(--muted);line-height:1.5}
+.upload-btns{display:flex;gap:.5rem;margin-top:.3rem;flex-wrap:wrap;justify-content:center}
+
+/* ── PREVIEW ────────────────────────────────────────────── */
+.preview-wrap{
+  border-radius:10px;border:1px solid var(--border);
+  overflow:hidden;background:#f8f4ee;
+  display:flex;align-items:center;justify-content:center;
+  min-height:190px;position:relative;
+}
+.preview-wrap img{max-width:100%;max-height:270px;object-fit:contain}
+.remove-btn{
+  position:absolute;top:8px;right:8px;
+  width:26px;height:26px;background:rgba(26,18,8,.7);
+  color:#fff;border:none;border-radius:50%;font-size:.7rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.thumb-strip{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.thumb{
+  flex-shrink:0;width:56px;height:56px;border-radius:8px;
+  border:2px solid var(--border);overflow:hidden;cursor:pointer;
+  position:relative;transition:border-color .2s;
+}
+.thumb.active{border-color:var(--amber)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb-del{
+  position:absolute;top:2px;right:2px;width:16px;height:16px;
+  background:rgba(26,18,8,.72);color:#fff;border:none;
+  border-radius:50%;font-size:.55rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.add-btn{
+  flex-shrink:0;width:56px;height:56px;border-radius:8px;
+  border:2px dashed var(--border);background:var(--amber-pale);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:1.4rem;color:var(--muted);transition:all .2s;
+}
+.add-btn:hover{border-color:var(--amber);color:var(--amber)}
+
+/* ── CONTROLS ───────────────────────────────────────────── */
+.ctrl-row{display:flex;gap:.6rem;align-items:center}
+.ctrl-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);white-space:nowrap}
+select{
+  flex:1;border:1.5px solid var(--border);border-radius:8px;
+  padding:.42rem .65rem;font-family:'DM Sans',sans-serif;
+  font-size:.82rem;background:#fff;color:var(--ink);transition:border .2s;
+}
+select:focus{outline:none;border-color:var(--amber)}
+
+/* ── STATUS ─────────────────────────────────────────────── */
+.status{
+  border-radius:8px;padding:.55rem .9rem;font-size:.8rem;
+  display:none;align-items:center;gap:.5rem;
+}
+.status.loading{display:flex;background:#fff8ef;color:var(--sepia);border:1px solid #f0d8a0}
+.status.error  {display:flex;background:#fff0f0;color:var(--err); border:1px solid #f0c0b0}
+.status.success{display:flex;background:#f0faf4;color:var(--ok);  border:1px solid #b8e0c8}
+.spinner{
+  width:13px;height:13px;flex-shrink:0;
+  border:2px solid #f0d8a0;border-top-color:var(--amber);
+  border-radius:50%;animation:spin .8s linear infinite;
+}
+
+/* ── BUTTONS ────────────────────────────────────────────── */
+.btn{
+  border:1.5px solid var(--border);border-radius:8px;
+  background:#fff;color:var(--ink);cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;
+  padding:.5rem .9rem;transition:all .18s;
+  display:inline-flex;align-items:center;justify-content:center;gap:.35rem;
+  white-space:nowrap;
+}
+.btn:hover:not(:disabled){border-color:var(--amber);background:var(--amber-pale)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-dark:hover:not(:disabled){background:#3a2510;border-color:#3a2510}
+.btn-amber{
+  background:var(--amber);color:#fff;border:none;
+  border-radius:10px;padding:.85rem;font-family:'DM Sans',sans-serif;
+  font-size:.95rem;font-weight:600;cursor:pointer;width:100%;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:.4rem;
+}
+.btn-amber:hover:not(:disabled){background:var(--amber-d);transform:translateY(-2px);box-shadow:0 6px 18px rgba(200,135,58,.4)}
+.btn-amber:disabled{opacity:.42;cursor:not-allowed;transform:none}
+.badge{
+  background:var(--amber);color:#fff;border-radius:20px;
+  padding:.18rem .6rem;font-size:.72rem;font-weight:600;
+}
+
+/* ── OUTPUT AREA ────────────────────────────────────────── */
+.font-row{display:flex;gap:.4rem;flex-wrap:wrap}
+.font-opt{
+  padding:.28rem .7rem;border-radius:6px;
+  border:1.5px solid var(--border);font-size:.75rem;
+  cursor:pointer;background:#fff;transition:all .18s;
+}
+.font-opt.active{border-color:var(--amber);background:var(--amber-pale);color:var(--sepia)}
+#outputText{
+  width:100%;min-height:240px;border:1.5px solid var(--border);
+  border-radius:10px;padding:.9rem;font-family:'DM Sans',sans-serif;
+  font-size:.9rem;line-height:1.75;color:var(--ink);resize:vertical;
+  background:var(--amber-pale);transition:border .2s;
+}
+#outputText:focus{outline:none;border-color:var(--amber)}
+#outputText::placeholder{color:#b8a88a;font-style:italic}
+.meta{display:flex;justify-content:space-between;font-size:.73rem;color:var(--muted);margin-top:-.4rem}
+.export-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.export-row .btn{flex:1}
+
+/* ── TIPS BOX ───────────────────────────────────────────── */
+.tips{
+  background:var(--amber-pale);border:1px solid #e8d4a8;
+  border-radius:10px;padding:.8rem 1rem;
+  font-size:.78rem;color:var(--muted);line-height:1.6;
+}
+.tips strong{color:var(--sepia);display:block;margin-bottom:3px}
+
+/* ── HISTORY ────────────────────────────────────────────── */
+.hist-empty{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.hist-empty .big{font-size:3rem;margin-bottom:.8rem}
+.hist-list{display:flex;flex-direction:column;gap:.7rem}
+.hist-item{
+  background:#fff;border:1px solid var(--border);
+  border-radius:12px;padding:.9rem 1.1rem;
+  display:flex;gap:.9rem;align-items:flex-start;
+  cursor:pointer;box-shadow:0 1px 8px rgba(26,18,8,.05);
+  transition:all .2s;
+}
+.hist-item:hover{border-color:var(--amber);transform:translateX(3px)}
+.hist-thumb{
+  width:54px;height:54px;border-radius:8px;
+  object-fit:cover;flex-shrink:0;border:1px solid var(--border);
+}
+.hist-date{font-size:.72rem;color:var(--muted);margin-bottom:4px}
+.hist-preview{
+  font-size:.85rem;line-height:1.5;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.hist-actions{display:flex;gap:.4rem;margin-top:.5rem}
+.hist-actions .btn{font-size:.72rem;padding:.25rem .6rem}
+
+/* ── GUIDE ──────────────────────────────────────────────── */
+.guide-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:.9rem;margin-bottom:1.5rem;
+}
+.guide-card{
+  background:#fff;border:1px solid var(--border);
+  border-radius:14px;padding:1.2rem;
+  box-shadow:0 2px 12px rgba(26,18,8,.07);
+}
+.step-num{
+  width:30px;height:30px;background:var(--ink);color:#fff;
+  border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:.82rem;font-weight:700;margin-bottom:.7rem;
+}
+.guide-card h3{font-family:'Playfair Display',serif;font-size:.95rem;font-weight:600;margin-bottom:.4rem}
+.guide-card p{font-size:.8rem;color:var(--muted);line-height:1.6}
+.faq{background:#fff;border:1px solid var(--border);border-radius:12px;padding:.9rem 1.1rem;cursor:pointer;margin-bottom:.6rem}
+.faq-q{font-weight:600;font-size:.88rem;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.faq-arrow{transition:transform .2s;font-size:.7rem;color:var(--muted)}
+.faq.open .faq-arrow{transform:rotate(180deg)}
+.faq-a{display:none;font-size:.82rem;color:var(--muted);line-height:1.65;margin-top:.6rem}
+.faq.open .faq-a{display:block}
+
+/* ── SECTION LABEL ──────────────────────────────────────── */
+.sect{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.45rem}
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:1.5rem;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--ink);color:#fff;padding:.6rem 1.4rem;
+  border-radius:30px;font-size:.82rem;font-weight:500;
+  box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:999;
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  pointer-events:none;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── ANIMS ──────────────────────────────────────────────── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn .35s ease}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media(max-width:480px){
+  .header-inner{padding:.75rem 1rem}
+  .container{padding:1rem .8rem}
+  .card-body{padding:.9rem}
+  #outputText{min-height:190px}
+  .screen-box{padding:2rem 1.3rem}
+}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     SETUP SCREEN (shown first time only — set API key + PIN)
+══════════════════════════════════════════════════════════ -->
+<div id="setupScreen" class="screen-overlay" style="display:none">
+  <div class="screen-box fade-in">
+    <span class="screen-icon">✍️</span>
+    <div class="screen-title">Welcome to HandScript</div>
+    <div class="screen-sub">One-time setup. Your details are saved only on this device.</div>
+
+    <div id="setupStep1">
+      <p style="color:rgba(255,255,255,.6);font-size:.8rem;text-align:left;margin-bottom:.5rem">
+        Step 1 of 2 — Enter your Anthropic API Key
+      </p>
+      <input class="setup-input" type="password" id="apiKeyInput" placeholder="sk-ant-api03-...">
+      <button class="setup-btn" id="apiNextBtn" onclick="setupApiNext()">Continue →</button>
+      <a class="setup-link" href="https://console.anthropic.com/settings/keys" target="_blank">
+        Get a free API key at console.anthropic.com →
+      </a>
+      <p class="setup-note">Your API key is stored only on your device and never sent anywhere except directly to Anthropic to process your handwriting.</p>
+    </div>
+
+    <div id="setupStep2" style="display:none">
+      <p style="color:rgba(255,255,255,.6);font-size:.8rem;margin-bottom:1rem">
+        Step 2 of 2 — Create a 4-digit PIN to lock this app
+      </p>
+      <div class="pin-dots" id="setupDots">
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+        <div class="pin-dot"></div><div class="pin-dot"></div>
+      </div>
+      <div id="setupConfirmLabel" class="pin-confirm-label" style="display:none">✓ Good! Now re-enter your PIN to confirm</div>
+      <div class="pin-error-msg" id="setupPinError"></div>
+      <div class="keypad" id="setupKeypad"></div>
+      <div class="pin-hint">This PIN protects your app from others</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOCK SCREEN (shown every time app opens after setup)
+══════════════════════════════════════════════════════════ -->
+<div id="lockScreen" class="screen-overlay" style="display:none">
+  <div class="screen-box fade-in">
+    <span class="screen-icon">🔐</span>
+    <div class="screen-title">HandScript</div>
+    <div class="screen-sub">Enter your PIN to continue</div>
+    <div class="pin-dots" id="lockDots">
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+      <div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-error-msg" id="lockPinError"></div>
+    <div class="keypad" id="lockKeypad"></div>
+    <div class="pin-hint">Forgot PIN? <span onclick="forgotPin()" style="color:#c8873a;cursor:pointer;text-decoration:underline">Reset app</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════════════════════════ -->
+<div id="mainApp" style="display:none">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">✍️</div>
+        <div>
+          <h1>HandScript</h1>
+          <p>Handwriting → Editable Text</p>
+        </div>
+      </div>
+      <button class="lock-btn" onclick="lockApp()">🔒 Lock</button>
+    </div>
+    <div class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" onclick="switchView('convert',this)">✨ Convert</button>
+      <button class="nav-tab" onclick="switchView('history',this)">🕐 History</button>
+      <button class="nav-tab" onclick="switchView('guide',this)">📖 Guide</button>
+      <button class="nav-tab" onclick="switchView('settings',this)">⚙️ Settings</button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- ── CONVERT VIEW ── -->
+    <div id="view-convert" class="view">
+      <div class="convert-grid">
+
+        <!-- Upload Card -->
+        <div class="card">
+          <div class="card-head">
+            <span class="card-title">📷 Upload Note</span>
+            <span class="badge" id="imgBadge" style="display:none">0 images</span>
+          </div>
+          <div class="card-body">
+
+            <div id="uploadZone" class="upload-zone"
+              ondragover="event.preventDefault();this.classList.add('drag')"
+              ondragleave="this.classList.remove('drag')"
+              ondrop="onDrop(event)"
+              onclick="document.getElementById('fileInput').click()">
+              <div class="upload-icon">🖼️</div>
+              <h3>Drop your photo here</h3>
+              <p>JPG, PNG, WEBP · phone camera photos work great</p>
+              <div class="upload-btns" onclick="event.stopPropagation()">
+                <button class="btn" onclick="document.getElementById('fileInput').click()">📁 Browse</button>
+                <button class="btn" onclick="document.getElementById('camInput').click()">📸 Camera</button>
+              </div>
+            </div>
+
+            <div id="previewSection" style="display:none;flex-direction:column;gap:.7rem">
+              <div class="preview-wrap">
+                <img id="mainPreview" alt="preview">
+                <button class="remove-btn" onclick="removeImg(activeIdx)">✕</button>
+              </div>
+              <div class="thumb-strip" id="thumbStrip"></div>
+            </div>
+
+            <input id="fileInput" type="file" accept="image/*" multiple onchange="handleFiles(this.files)" style="display:none">
+            <input id="camInput"  type="file" accept="image/*" capture="environment" onchange="handleFiles(this.files)" style="display:none">
+
+            <div class="ctrl-row">
+              <span class="ctrl-label">Language</span>
+              <select id="langSel">
+                <option>English</option><option>Swahili</option><option>Luganda</option>
+                <option>French</option><option>Arabic</option><option>Auto-detect</option>
+              </select>
+            </div>
+            <div class="ctrl-row">
+              <span class="ctrl-label">Mode</span>
+              <select id="modeSel">
+                <option value="exact">Exact transcription</option>
+                <option value="clean">Clean & fix spelling</option>
+                <option value="formal">Formal rewrite</option>
+              </select>
+            </div>
+
+            <div class="status" id="statusBar"><span class="spinner" id="spin" style="display:none"></span><span id="statusMsg"></span></div>
+
+            <button class="btn-amber" id="convertBtn" onclick="doConvert()" disabled>✨ Convert to Text</button>
+
+            <div class="tips">
+              <strong>📌 Tips for best results</strong>
+              Good lighting · Lay paper flat · Hold camera steady · Avoid shadows · Works with cursive & print
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Card -->
+        <div class="card">
+          <div class="card-head"><span class="card-title">📝 Editable Text</span></div>
+          <div class="card-body">
+            <div>
+              <div class="sect">Font Style</div>
+              <div class="font-row">
+                <button class="font-opt active" onclick="setFont(this,'inherit')">Normal</button>
+                <button class="font-opt" onclick="setFont(this,'Georgia,serif')" style="font-family:Georgia">Serif</button>
+                <button class="font-opt" onclick="setFont(this,'monospace')" style="font-family:monospace">Mono</button>
+                <button class="font-opt" onclick="setFont(this,'cursive')" style="font-family:cursive">Script</button>
+              </div>
+            </div>
+
+            <textarea id="outputText" placeholder="Your converted text will appear here — fully editable…" oninput="updateMeta()"></textarea>
+
+            <div class="meta" id="metaBar" style="display:none">
+              <span id="wordMeta"></span><span id="charMeta"></span>
+            </div>
+
+            <div>
+              <div class="sect">Save / Export</div>
+              <div class="export-row">
+                <button class="btn" id="copyBtn" onclick="copyText()" disabled>📋 Copy</button>
+                <button class="btn" id="txtBtn"  onclick="dlTxt()"   disabled>📄 .TXT</button>
+                <button class="btn btn-dark" id="docBtn" onclick="dlDoc()" disabled>📝 Word</button>
+                <button class="btn" id="clrBtn" onclick="clearOutput()" disabled>🗑️ Clear</button>
+              </div>
+            </div>
+
+            <div class="tips">
+              <strong>💡 After conversion</strong>
+              Edit directly above · Fix any errors · Download as plain text or open in Microsoft Word
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /convert -->
+
+    <!-- ── HISTORY VIEW ── -->
+    <div id="view-history" class="view" style="display:none">
+      <div id="histContent"></div>
+    </div>
+
+    <!-- ── GUIDE VIEW ── -->
+    <div id="view-guide" class="view" style="display:none">
+      <div class="guide-grid">
+        <div class="guide-card"><div class="step-num">1</div><h3>📤 Upload a photo</h3><p>Take a photo of your handwritten note or pick an image from your phone or computer gallery.</p></div>
+        <div class="guide-card"><div class="step-num">2</div><h3>⚙️ Choose settings</h3><p>Select the language of your note and preferred mode — exact copy, cleaned-up, or formal rewrite.</p></div>
+        <div class="guide-card"><div class="step-num">3</div><h3>✨ Convert</h3><p>Tap Convert. The AI reads your handwriting and returns editable text within seconds.</p></div>
+        <div class="guide-card"><div class="step-num">4</div><h3>💾 Save your text</h3><p>Edit the result, then copy it, download as TXT, or save as a Word document.</p></div>
+      </div>
+      <div class="sect">Frequently Asked Questions</div>
+      <div class="faq" onclick="this.classList.toggle('open')"><div class="faq-q">How accurate is the conversion? <span class="faq-arrow">▼</span></div><div class="faq-a">Very accurate for clear handwriting in good lighting. Messy or faint writing may have some errors — the text is fully editable so you can fix anything easily.</div></div>
+      <div class="faq" onclick="this.classList.toggle('open')"><div class="faq-q">Can I convert multiple pages? <span class="faq-arrow">▼</span></div><div class="faq-a">Yes! Add multiple images and all pages will be converted together into one combined editable text block.</div></div>
+      <div class="faq" onclick="this.classList.toggle('open')"><div class="faq-q">What languages are supported? <span class="faq-arrow">▼</span></div><div class="faq-a">English, Swahili, Luganda, French, Arabic, and more. Select your language before converting for best accuracy.</div></div>
+      <div class="faq" onclick="this.classList.toggle('open')"><div class="faq-q">Is my data private? <span class="faq-arrow">▼</span></div><div class="faq-a">Your images go directly from your device to Anthropic's AI. Nothing is stored on any server. Your PIN and API key are saved only on your own device.</div></div>
+      <div class="faq" onclick="this.classList.toggle('open')"><div class="faq-q">What are the conversion modes? <span class="faq-arrow">▼</span></div><div class="faq-a">Exact: copies exactly what's written. Clean: fixes obvious spelling and punctuation. Formal: rewrites professionally while keeping your meaning.</div></div>
+    </div>
+
+    <!-- ── SETTINGS VIEW ── -->
+    <div id="view-settings" class="view" style="display:none">
+      <div style="max-width:480px">
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-head"><span class="card-title">🔑 API Key</span></div>
+          <div class="card-body">
+            <p style="font-size:.82rem;color:var(--muted);line-height:1.6">Your Anthropic API key is stored securely on this device. Update it below if needed.</p>
+            <input type="password" id="apiKeyEdit" placeholder="sk-ant-api03-..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:.5rem .8rem;font-family:'DM Sans',sans-serif;font-size:.85rem">
+            <button class="btn-amber" onclick="saveApiKey()" style="margin-top:.2rem">Save API Key</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-head"><span class="card-title">🔒 Change PIN</span></div>
+          <div class="card-body">
+            <p style="font-size:.82rem;color:var(--muted);line-height:1.6">Change the 4-digit PIN used to lock this app.</p>
+            <button class="btn" onclick="startChangePIN()">Change PIN →</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><span class="card-title">🗑️ Data</span></div>
+          <div class="card-body">
+            <p style="font-size:.82rem;color:var(--muted);line-height:1.6">Clear all your conversion history from this device.</p>
+            <button class="btn" style="color:var(--err);border-color:#f0c0b0" onclick="if(confirm('Clear all history?')){localStorage.removeItem('hs_hist');showToast('History cleared');}">Clear All History</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /container -->
+</div><!-- /mainApp -->
+
+<div id="toast"></div>
+
+<!-- PWA MANIFEST -->
+<script>
+const mf={name:"HandScript",short_name:"HandScript",description:"Convert handwritten notes to editable text",start_url:"./",display:"standalone",background_color:"#faf6ef",theme_color:"#1a1208",icons:[{src:"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%231a1208'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100'%3E%E2%9C%8D%EF%B8%8F%3C/text%3E%3C/svg%3E",sizes:"192x192",type:"image/svg+xml"}]};
+const ml=document.createElement("link");ml.rel="manifest";ml.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:"application/json"}));document.head.appendChild(ml);
+</script>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════
+let images=[], activeIdx=0, currentView="convert";
+let setupPin="", setupConfirm="", setupStage="create"; // "create" | "confirm"
+let lockInput="";
+
+// ══════════════════════════════════════════════════════════
+// INIT — decide which screen to show
+// ══════════════════════════════════════════════════════════
+window.addEventListener("load", () => {
+  const pin = localStorage.getItem("hs_pin");
+  const key = localStorage.getItem("hs_key");
+  if (!pin || !key) {
+    // First time — show setup
+    document.getElementById("setupScreen").style.display = "flex";
+    buildKeypad("setupKeypad", handleSetupKey);
+  } else {
+    // Already set up — show lock screen
+    document.getElementById("lockScreen").style.display = "flex";
+    buildKeypad("lockKeypad", handleLockKey);
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+// KEYPAD BUILDER
+// ══════════════════════════════════════════════════════════
+function buildKeypad(containerId, handler) {
+  const c = document.getElementById(containerId);
+  c.innerHTML = "";
+  [1,2,3,4,5,6,7,8,9].forEach(n => {
+    const b = document.createElement("button");
+    b.className = "key"; b.textContent = n;
+    b.onclick = () => handler(String(n));
+    c.appendChild(b);
+  });
+  // Empty slot
+  const empty = document.createElement("div");
+  c.appendChild(empty);
+  // 0
+  const z = document.createElement("button");
+  z.className = "key"; z.textContent = "0";
+  z.onclick = () => handler("0");
+  c.appendChild(z);
+  // Delete
+  const d = document.createElement("button");
+  d.className = "key del"; d.textContent = "⌫";
+  d.onclick = () => handler("del");
+  c.appendChild(d);
+}
+
+// ══════════════════════════════════════════════════════════
+// SETUP FLOW
+// ══════════════════════════════════════════════════════════
+function setupApiNext() {
+  const key = document.getElementById("apiKeyInput").value.trim();
+  if (!key.startsWith("sk-ant")) {
+    alert("Please enter a valid Anthropic API key starting with sk-ant-");
+    return;
+  }
+  localStorage.setItem("hs_key", key);
+  document.getElementById("setupStep1").style.display = "none";
+  document.getElementById("setupStep2").style.display = "block";
+}
+
+function handleSetupKey(k) {
+  if (setupStage === "create") {
+    if (k === "del") { setupPin = setupPin.slice(0,-1); }
+    else if (setupPin.length < 4) { setupPin += k; }
+    updateDots("setupDots", setupPin.length, false);
+    document.getElementById("setupPinError").textContent = "";
+    if (setupPin.length === 4) {
+      // Move to confirm stage
+      setTimeout(() => {
+        setupStage = "confirm";
+        setupPin = setupPin; // keep it
+        setupConfirm = "";
+        updateDots("setupDots", 0, false);
+        document.getElementById("setupConfirmLabel").style.display = "block";
+        document.getElementById("setupPinError").textContent = "";
+      }, 200);
+    }
+  } else {
+    // Confirm stage
+    if (k === "del") { setupConfirm = setupConfirm.slice(0,-1); }
+    else if (setupConfirm.length < 4) { setupConfirm += k; }
+    updateDots("setupDots", setupConfirm.length, false);
+    if (setupConfirm.length === 4) {
+      if (setupConfirm === setupPin) {
+        // Save and open app
+        localStorage.setItem("hs_pin", btoa(setupPin));
+        setTimeout(() => {
+          document.getElementById("setupScreen").style.display = "none";
+          openApp();
+        }, 200);
+      } else {
+        // Mismatch — shake and reset
+        flashError("setupDots", "setupPinError", "PINs don't match. Try again.");
+        setupConfirm = "";
+        setupPin = "";
+        setupStage = "create";
+        document.getElementById("setupConfirmLabel").style.display = "none";
+      }
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// LOCK SCREEN
+// ══════════════════════════════════════════════════════════
+function handleLockKey(k) {
+  if (k === "del") { lockInput = lockInput.slice(0,-1); }
+  else if (lockInput.length < 4) { lockInput += k; }
+  updateDots("lockDots", lockInput.length, false);
+  document.getElementById("lockPinError").textContent = "";
+  if (lockInput.length === 4) {
+    const saved = atob(localStorage.getItem("hs_pin") || "");
+    if (lockInput === saved) {
+      document.getElementById("lockScreen").style.display = "none";
+      openApp();
+    } else {
+      flashError("lockDots", "lockPinError", "Incorrect PIN. Try again.");
+      lockInput = "";
+    }
+  }
+}
+
+function lockApp() {
+  lockInput = "";
+  updateDots("lockDots", 0, false);
+  document.getElementById("lockPinError").textContent = "";
+  document.getElementById("mainApp").style.display = "none";
+  document.getElementById("lockScreen").style.display = "flex";
+}
+
+function forgotPin() {
+  if (confirm("This will delete all your data and reset the app. Continue?")) {
+    localStorage.clear();
+    location.reload();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// PIN HELPERS
+// ══════════════════════════════════════════════════════════
+function updateDots(id, filled, err) {
+  const dots = document.querySelectorAll(`#${id} .pin-dot`);
+  dots.forEach((d,i) => {
+    d.className = "pin-dot" + (i < filled ? " filled" : "") + (err ? " error" : "");
+  });
+}
+
+function flashError(dotsId, errId, msg) {
+  updateDots(dotsId, 4, true);
+  document.getElementById(errId).textContent = msg;
+  setTimeout(() => updateDots(dotsId, 0, false), 600);
+}
+
+// ══════════════════════════════════════════════════════════
+// OPEN APP
+// ══════════════════════════════════════════════════════════
+function openApp() {
+  document.getElementById("mainApp").style.display = "block";
+  // Prefill API key in settings
+  const k = localStorage.getItem("hs_key") || "";
+  document.getElementById("apiKeyEdit").value = k ? "••••••••••••" : "";
+}
+
+// ══════════════════════════════════════════════════════════
+// CHANGE PIN (from settings)
+// ══════════════════════════════════════════════════════════
+function startChangePIN() {
+  setupPin = ""; setupConfirm = ""; setupStage = "create";
+  document.getElementById("setupConfirmLabel").style.display = "none";
+  document.getElementById("setupPinError").textContent = "";
+  updateDots("setupDots", 0, false);
+  document.getElementById("setupStep1").style.display = "none";
+  document.getElementById("setupStep2").style.display = "block";
+  document.getElementById("setupScreen").style.display = "flex";
+}
+
+// ══════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════
+function switchView(name, tab) {
+  document.querySelectorAll(".view").forEach(v => v.style.display = "none");
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  document.getElementById("view-" + name).style.display = "block";
+  tab.classList.add("active");
+  currentView = name;
+  if (name === "history") renderHistory();
+}
+
+// ══════════════════════════════════════════════════════════
+// FILE HANDLING
+// ══════════════════════════════════════════════════════════
+function handleFiles(files) {
+  Array.from(files).filter(f => f.type.startsWith("image/")).forEach(f => {
+    const r = new FileReader();
+    r.onload = e => {
+      images.push({ base64: e.target.result.split(",")[1], mime: f.type, dataUrl: e.target.result });
+      activeIdx = images.length - 1;
+      renderImages();
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById("uploadZone").classList.remove("drag");
+  handleFiles(e.dataTransfer.files);
+}
+
+function renderImages() {
+  if (!images.length) {
+    document.getElementById("uploadZone").style.display = "flex";
+    document.getElementById("previewSection").style.display = "none";
+    document.getElementById("convertBtn").disabled = true;
+    document.getElementById("imgBadge").style.display = "none";
+    return;
+  }
+  document.getElementById("uploadZone").style.display = "none";
+  document.getElementById("previewSection").style.display = "flex";
+  document.getElementById("convertBtn").disabled = false;
+  const badge = document.getElementById("imgBadge");
+  badge.style.display = "inline-block";
+  badge.textContent = images.length + (images.length===1?" image":" images");
+  document.getElementById("mainPreview").src = images[activeIdx].dataUrl;
+
+  const strip = document.getElementById("thumbStrip");
+  strip.innerHTML = "";
+  images.forEach((img, i) => {
+    const wrap = document.createElement("div");
+    wrap.className = "thumb" + (i===activeIdx?" active":"");
+    wrap.onclick = () => { activeIdx=i; renderImages(); };
+    wrap.innerHTML = `<img src="${img.dataUrl}" alt=""><button class="thumb-del" onclick="event.stopPropagation();removeImg(${i})">✕</button>`;
+    strip.appendChild(wrap);
+  });
+  const add = document.createElement("div");
+  add.className = "add-btn"; add.textContent = "+";
+  add.onclick = () => document.getElementById("fileInput").click();
+  strip.appendChild(add);
+}
+
+function removeImg(idx) {
+  images.splice(idx, 1);
+  activeIdx = Math.min(activeIdx, images.length-1);
+  renderImages();
+}
+
+// ══════════════════════════════════════════════════════════
+// CONVERT
+// ══════════════════════════════════════════════════════════
+async function doConvert() {
+  if (!images.length) return;
+  const apiKey = localStorage.getItem("hs_key");
+  if (!apiKey) { showToast("⚠️ No API key — go to Settings"); return; }
+
+  const modeMap = {
+    exact: "Transcribe EXACTLY what is written. If a word is illegible write [illegible].",
+    clean: "Transcribe and fix obvious spelling mistakes and add proper punctuation.",
+    formal: "Transcribe and rewrite in formal, professional language preserving meaning.",
+  };
+  const lang = document.getElementById("langSel").value;
+  const mode = document.getElementById("modeSel").value;
+
+  setStatus("loading", "Reading your handwriting…");
+  document.getElementById("convertBtn").disabled = true;
+
+  const blocks = [];
+  images.forEach((img, i) => {
+    if (images.length>1) blocks.push({ type:"text", text:`--- Page ${i+1} ---` });
+    blocks.push({ type:"image", source:{ type:"base64", media_type:img.mime, data:img.base64 } });
+  });
+  blocks.push({ type:"text", text:"Please transcribe all handwritten text from the above image(s)." });
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-api-key": apiKey,
+        "anthropic-version":"2023-06-01",
+        "anthropic-dangerous-direct-browser-access":"true"
+      },
+      body: JSON.stringify({
+        model:"claude-opus-4-5",
+        max_tokens:2000,
+        system:`You are an expert handwriting transcription AI. ${modeMap[mode]} Output ONLY the transcribed text. No commentary. Language: ${lang}.`,
+        messages:[{ role:"user", content:blocks }],
+      }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.content?.find(b=>b.type==="text")?.text || "";
+    document.getElementById("outputText").value = text;
+    updateMeta();
+    enableOutput();
+    setStatus("success", `✅ Done! ${images.length>1?images.length+" pages converted.":"Conversion complete."}`);
+    saveHistory({ text, thumb:images[0].dataUrl, pageCount:images.length, lang, mode });
+  } catch(err) {
+    setStatus("error", "⚠️ " + (err.message || "Conversion failed. Try again."));
+  }
+  document.getElementById("convertBtn").disabled = false;
+}
+
+// ══════════════════════════════════════════════════════════
+// STATUS
+// ══════════════════════════════════════════════════════════
+function setStatus(type, msg) {
+  const bar = document.getElementById("statusBar");
+  bar.className = "status " + type;
+  document.getElementById("spin").style.display = type==="loading"?"inline-block":"none";
+  document.getElementById("statusMsg").textContent = msg;
+}
+
+// ══════════════════════════════════════════════════════════
+// OUTPUT
+// ══════════════════════════════════════════════════════════
+function enableOutput() {
+  ["copyBtn","txtBtn","docBtn","clrBtn"].forEach(id => document.getElementById(id).disabled=false);
+}
+
+function updateMeta() {
+  const t = document.getElementById("outputText").value;
+  const words = t.trim() ? t.trim().split(/\s+/).length : 0;
+  const bar = document.getElementById("metaBar");
+  bar.style.display = t ? "flex" : "none";
+  document.getElementById("wordMeta").textContent = words + " words";
+  document.getElementById("charMeta").textContent = t.length + " characters";
+}
+
+function setFont(btn, f) {
+  document.querySelectorAll(".font-opt").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  document.getElementById("outputText").style.fontFamily = f;
+}
+
+function copyText() {
+  navigator.clipboard.writeText(document.getElementById("outputText").value)
+    .then(() => showToast("Copied to clipboard ✓"));
+}
+
+function dlTxt() {
+  const t = document.getElementById("outputText").value;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([t],{type:"text/plain"}));
+  a.download = "handscript-note.txt"; a.click();
+  showToast("Downloaded as .txt");
+}
+
+function dlDoc() {
+  const t = document.getElementById("outputText").value;
+  const body = t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+  const html = `<html><head><meta charset='utf-8'><style>body{font-family:Calibri,sans-serif;font-size:12pt;line-height:1.7;margin:2cm}</style></head><body>${body}</body></html>`;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([html],{type:"application/msword"}));
+  a.download = "handscript-note.doc"; a.click();
+  showToast("Downloaded — opens in Word!");
+}
+
+function clearOutput() {
+  document.getElementById("outputText").value = "";
+  updateMeta();
+  document.getElementById("statusBar").className = "status";
+  ["copyBtn","txtBtn","docBtn","clrBtn"].forEach(id => document.getElementById(id).disabled=true);
+}
+
+// ══════════════════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════════════════
+function saveHistory(entry) {
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem("hs_hist")||"[]"); } catch{}
+  h.unshift({...entry, id:Date.now(), date:new Date().toISOString()});
+  localStorage.setItem("hs_hist", JSON.stringify(h.slice(0,50)));
+}
+
+function renderHistory() {
+  let h = [];
+  try { h = JSON.parse(localStorage.getItem("hs_hist")||"[]"); } catch{}
+  const el = document.getElementById("histContent");
+  if (!h.length) {
+    el.innerHTML = `<div class="hist-empty"><div class="big">📭</div><p>No conversions yet.<br>Convert a note to see your history here.</p></div>`;
+    return;
+  }
+  const fmtDate = iso => new Date(iso).toLocaleString("en-UG",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:.8rem">
+      <button class="btn" style="color:var(--err);border-color:#f0c0b0" onclick="if(confirm('Clear all history?')){localStorage.removeItem('hs_hist');renderHistory();}">🗑️ Clear All</button>
+    </div>
+    <div class="hist-list">
+      ${h.map(x=>`
+        <div class="hist-item" onclick="loadHistory(${x.id})">
+          <img class="hist-thumb" src="${x.thumb}" alt="">
+          <div style="flex:1;min-width:0">
+            <div class="hist-date">${fmtDate(x.date)} · ${x.pageCount} page${x.pageCount>1?"s":""} · ${x.lang}</div>
+            <div class="hist-preview">${x.text.replace(/</g,"&lt;")}</div>
+            <div class="hist-actions">
+              <button class="btn" onclick="event.stopPropagation();navigator.clipboard.writeText(getHist(${x.id})).then(()=>showToast('Copied!'))">📋 Copy</button>
+              <button class="btn" style="color:var(--err);border-color:#f0c0b0" onclick="event.stopPropagation();delHistory(${x.id})">🗑️</button>
+            </div>
+          </div>
+        </div>`).join("")}
+    </div>`;
+}
+
+function getHist(id) {
+  try {
+    const h = JSON.parse(localStorage.getItem("hs_hist")||"[]");
+    return (h.find(x=>x.id===id)||{}).text||"";
+  } catch { return ""; }
+}
+
+function loadHistory(id) {
+  const text = getHist(id);
+  document.getElementById("outputText").value = text;
+  updateMeta();
+  enableOutput();
+  switchView("convert", document.querySelector(".nav-tab"));
+  showToast("Loaded from history");
+}
+
+function delHistory(id) {
+  try {
+    let h = JSON.parse(localStorage.getItem("hs_hist")||"[]");
+    localStorage.setItem("hs_hist", JSON.stringify(h.filter(x=>x.id!==id)));
+    renderHistory();
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════════
+function saveApiKey() {
+  const v = document.getElementById("apiKeyEdit").value.trim();
+  if (!v || v === "••••••••••••") { showToast("No changes made"); return; }
+  if (!v.startsWith("sk-ant")) { showToast("⚠️ Invalid key format"); return; }
+  localStorage.setItem("hs_key", v);
+  document.getElementById("apiKeyEdit").value = "••••••••••••";
+  showToast("API key saved ✓");
+}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+</script>
+</body>
+</html>
